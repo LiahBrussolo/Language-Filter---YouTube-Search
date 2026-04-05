@@ -1,1 +1,2 @@
-This is an extension for YouTube that filters results based on the selected language. The goal is to by-pass AI voiceover and AI-translated titles in YouTube to find videos that have original audio in a selected language. 
+This is an extension for YouTube that filters results based on the selected language. 
+The goal is to by-pass AI voiceover and AI-translated titles in YouTube to find videos that have original audio in a selected language. 
