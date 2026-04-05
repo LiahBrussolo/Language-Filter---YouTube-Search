@@ -1,0 +1,190 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #ffffff;
+  --surface:   #f5f5f5;
+  --text:      #0f0f0f;
+  --muted:     #606060;
+  --border:    #cccccc;
+  --accent:    #065fd4;
+  --btn-bg:    #f2f2f2;
+  --btn-hover: #e5e5e5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:        #212121;
+    --surface:   #2d2d2d;
+    --text:      #f1f1f1;
+    --muted:     #aaaaaa;
+    --border:    #444444;
+    --accent:    #3da3f5;
+    --btn-bg:    #383838;
+    --btn-hover: #444444;
+  }
+}
+
+body {
+  width: 280px;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 14px;
+}
+
+h1 {
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 14px;
+}
+
+/* ── Toggle button ─────────────────────────────────────── */
+#toggle-btn {
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--btn-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#toggle-btn::after {
+  content: '▾';
+  font-size: 12px;
+  color: var(--muted);
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+#toggle-btn.open::after {
+  transform: rotate(180deg);
+}
+
+#toggle-btn:hover { background: var(--btn-hover); }
+
+/* ── Key saved indicator ───────────────────────────────── */
+#key-status {
+  font-size: 11px;
+  color: var(--accent);
+  margin-top: 5px;
+  min-height: 14px;
+}
+
+/* ── Expandable section ────────────────────────────────── */
+#key-section {
+  margin-top: 12px;
+}
+
+#key-section[hidden] { display: none; }
+
+input[type="text"] {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: monospace;
+  outline: none;
+}
+
+input[type="text"]:focus { border-color: var(--accent); }
+
+/* ── Feature toggles ────────────────────────────────────── */
+.toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+}
+
+.switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.slider {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 20px;
+  transition: background 0.2s;
+}
+
+.slider::before {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  left: 3px;
+  top: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.switch input:checked + .slider { background: var(--accent); }
+.switch input:checked + .slider::before { transform: translateX(16px); }
+
+#actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+button {
+  flex: 1;
+  padding: 7px;
+  background: var(--btn-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+button:hover { background: var(--btn-hover); }
+
+#save { color: var(--accent); font-weight: 500; }
+
+/* ── Status + hint ─────────────────────────────────────── */
+#status {
+  font-size: 12px;
+  color: var(--accent);
+  margin-top: 8px;
+  min-height: 16px;
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 12px;
+  line-height: 1.6;
+}

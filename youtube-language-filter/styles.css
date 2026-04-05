@@ -1,0 +1,122 @@
+/* Explicit colors via data-theme — CSS variables don't apply to native <select> */
+
+/* ── Hide homepage feed ──────────────────────────────────────────── */
+body.ytlf-hide-home ytd-browse[page-subtype="home"] ytd-rich-grid-renderer {
+  display: none !important;
+}
+
+/* ── Hide Shorts everywhere ──────────────────────────────────────── */
+/* CSS covers all known element variants */
+body.ytlf-hide-shorts ytd-reel-shelf-renderer,
+body.ytlf-hide-shorts ytd-rich-shelf-renderer[is-shorts],
+body.ytlf-hide-shorts ytd-shelf-renderer[is-shorts],
+body.ytlf-hide-shorts ytd-reel-item-renderer,
+body.ytlf-hide-shorts ytd-shorts,
+body.ytlf-hide-shorts yt-shorts-lockup-view-model,
+/* Homepage section wrappers */
+body.ytlf-hide-shorts ytd-rich-section-renderer:has(ytd-reel-shelf-renderer),
+body.ytlf-hide-shorts ytd-rich-section-renderer:has(ytd-rich-shelf-renderer[is-shorts]),
+body.ytlf-hide-shorts ytd-rich-section-renderer:has(ytd-shorts),
+body.ytlf-hide-shorts ytd-rich-section-renderer:has(yt-shorts-lockup-view-model),
+body.ytlf-hide-shorts ytd-rich-item-renderer:has(ytd-reel-item-renderer),
+body.ytlf-hide-shorts ytd-rich-item-renderer:has(a[href^="/shorts/"]),
+/* Search-results section wrappers — Shorts shelf lives inside ytd-item-section-renderer */
+body.ytlf-hide-shorts ytd-item-section-renderer:has(ytd-reel-shelf-renderer),
+body.ytlf-hide-shorts ytd-item-section-renderer:has(ytd-reel-item-renderer),
+body.ytlf-hide-shorts ytd-compact-video-renderer:has(a[href^="/shorts/"]) { display: none !important; }
+/* JS scanner tags elements CSS might miss (unknown future element names, title-text matches) */
+body.ytlf-hide-shorts [data-ytlf-shorts] { display: none !important; }
+/* Left nav Shorts link */
+body.ytlf-hide-shorts ytd-guide-entry-renderer:has(a[title="Shorts"]),
+body.ytlf-hide-shorts ytd-mini-guide-entry-renderer:has(a[aria-label="Shorts"]) { display: none !important; }
+
+/* ── Hide YouTube Playables ──────────────────────────────────────── */
+body.ytlf-hide-playables ytd-game-card-renderer,
+body.ytlf-hide-playables ytd-rich-item-renderer:has(ytd-game-card-renderer),
+body.ytlf-hide-playables ytd-rich-section-renderer:has(ytd-game-card-renderer),
+body.ytlf-hide-playables [data-ytlf-playables] { display: none !important; }
+body.ytlf-hide-playables ytd-guide-entry-renderer:has(a[title="Playables"]),
+body.ytlf-hide-playables ytd-guide-entry-renderer:has(a[aria-label="Playables"]) { display: none !important; }
+
+/* ── Hide watch page sidebar + expand video ──────────────────────── */
+body.ytlf-hide-sidebar #secondary { display: none !important; }
+body.ytlf-hide-sidebar ytd-watch-flexy #columns { max-width: none !important; }
+body.ytlf-hide-sidebar ytd-watch-flexy #primary { max-width: none !important; }
+body.ytlf-hide-sidebar ytd-watch-flexy #primary-inner { max-width: none !important; }
+body.ytlf-hide-sidebar ytd-watch-flexy #above-the-fold { max-width: none !important; }
+body.ytlf-hide-sidebar ytd-watch-flexy #below { max-width: none !important; }
+
+#ytlf {
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Shared select layout ──────────────────────────────── */
+#ytlf select {
+  border: 1px solid;
+  border-radius: 18px;
+  padding: 0 14px;
+  height: 36px;
+  font-size: 14px;
+  font-family: Roboto, Arial, sans-serif;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.15s;
+}
+
+/* ── Light theme ───────────────────────────────────────── */
+#ytlf[data-theme="light"] select {
+  background: #f2f2f2;
+  color: #0f0f0f;
+  border-color: #cccccc;
+}
+#ytlf[data-theme="light"] select:hover {
+  background: #e5e5e5;
+  border-color: #909090;
+}
+
+/* ── Dark theme ────────────────────────────────────────── */
+#ytlf[data-theme="dark"] select {
+  background: #272727;
+  color: #f1f1f1;
+  border-color: #3f3f3f;
+}
+#ytlf[data-theme="dark"] select:hover {
+  background: #3f3f3f;
+  border-color: #717171;
+}
+
+/* ── Toggle button ─────────────────────────────────────── */
+#ytlf-toggle {
+  height: 36px;
+  width: 36px;
+  border-radius: 50%;
+  border: 1px solid;
+  background: transparent;
+  cursor: pointer;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+#ytlf[data-theme="light"] #ytlf-toggle {
+  color: #0f0f0f;
+  border-color: #cccccc;
+}
+#ytlf[data-theme="light"] #ytlf-toggle:hover {
+  background: #e5e5e5;
+}
+
+#ytlf[data-theme="dark"] #ytlf-toggle {
+  color: #f1f1f1;
+  border-color: #3f3f3f;
+}
+#ytlf[data-theme="dark"] #ytlf-toggle:hover {
+  background: #3f3f3f;
+}
