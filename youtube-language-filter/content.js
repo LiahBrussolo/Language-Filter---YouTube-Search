@@ -52,6 +52,8 @@ const HIDE_HOME_KEY      = 'ytlf_hide_home';
 const HIDE_SIDEBAR_KEY   = 'ytlf_hide_sidebar';
 const HIDE_SHORTS_KEY    = 'ytlf_hide_shorts';
 const HIDE_PLAYABLES_KEY = 'ytlf_hide_playables';
+const HIDE_ENGAGEMENTS_KEY = 'ytlf_hide_engagements';
+const ENABLED_KEY        = 'ytlf_enabled';
 const MIN_TEXT_LEN = 12;   // CLD needs enough chars to be confident
 const MIN_CONF     = 55;   // below this % we show the video rather than wrongly hide it
 const BATCH_MS     = 50;   // debounce window to collect IDs before one API call
@@ -70,20 +72,28 @@ let hideHome      = false;
 let hideSidebar   = false;
 let hideShorts    = false;
 let hidePlayables = false;
+let hideEngagements = false;
+let enabled       = true;   // master on/off switch
 
-chrome.storage.sync.get([API_KEY, HIDE_HOME_KEY, HIDE_SIDEBAR_KEY, HIDE_SHORTS_KEY, HIDE_PLAYABLES_KEY], (res) => {
-  cachedApiKey  = res[API_KEY] || null;
-  hideHome      = !!res[HIDE_HOME_KEY];
-  hideSidebar   = !!res[HIDE_SIDEBAR_KEY];
-  hideShorts    = !!res[HIDE_SHORTS_KEY];
-  hidePlayables = !!res[HIDE_PLAYABLES_KEY];
-  applyDisplayToggles();
-});
+chrome.storage.sync.get(
+  [API_KEY, HIDE_HOME_KEY, HIDE_SIDEBAR_KEY, HIDE_SHORTS_KEY, HIDE_PLAYABLES_KEY, HIDE_ENGAGEMENTS_KEY, ENABLED_KEY],
+  (res) => {
+    cachedApiKey    = res[API_KEY] || null;
+    hideHome        = !!res[HIDE_HOME_KEY];
+    hideSidebar     = !!res[HIDE_SIDEBAR_KEY];
+    hideShorts      = !!res[HIDE_SHORTS_KEY];
+    hidePlayables   = !!res[HIDE_PLAYABLES_KEY];
+    hideEngagements = !!res[HIDE_ENGAGEMENTS_KEY];
+    enabled       = res[ENABLED_KEY] !== false; // default on
+    applyDisplayToggles();
+    applyVideoFilter(); // apply Videos chip filter on initial load if hideShorts is on
+  }
+);
 
 chrome.storage.onChanged.addListener((changes) => {
   if (changes[API_KEY]) {
     cachedApiKey = changes[API_KEY].newValue || null;
-    filterAll();
+    if (enabled) filterAll();
   }
   if (changes[HIDE_HOME_KEY]) {
     hideHome = !!changes[HIDE_HOME_KEY].newValue;
@@ -96,10 +106,29 @@ chrome.storage.onChanged.addListener((changes) => {
   if (changes[HIDE_SHORTS_KEY]) {
     hideShorts = !!changes[HIDE_SHORTS_KEY].newValue;
     applyDisplayToggles();
+    applyVideoFilter();
   }
   if (changes[HIDE_PLAYABLES_KEY]) {
     hidePlayables = !!changes[HIDE_PLAYABLES_KEY].newValue;
     applyDisplayToggles();
+  }
+  if (changes[HIDE_ENGAGEMENTS_KEY]) {
+    hideEngagements = !!changes[HIDE_ENGAGEMENTS_KEY].newValue;
+    applyDisplayToggles();
+  }
+  if (changes[ENABLED_KEY]) {
+    enabled = changes[ENABLED_KEY].newValue !== false;
+    // Sync widget opacity
+    const w = document.getElementById('ytlf');
+    if (w) w.dataset.enabled = enabled ? '1' : '0';
+    if (!enabled) {
+      // Show all videos, remove all CSS classes
+      document.querySelectorAll(RENDERER_SEL).forEach(r => { r.style.display = ''; });
+      applyDisplayToggles();
+    } else {
+      applyDisplayToggles();
+      if (isFilteredPage()) filterAll();
+    }
   }
 });
 
@@ -129,7 +158,7 @@ function tagShorts() {
   document.querySelectorAll('a[href^="/shorts/"]').forEach(a => {
     const c = a.closest(
       'ytd-item-section-renderer, ytd-rich-section-renderer, ' +
-      'ytd-rich-item-renderer, ytd-compact-video-renderer'
+      'ytd-rich-item-renderer, ytd-compact-video-renderer, ytd-video-renderer'
     );
     if (c) c.dataset.ytlfShorts = '1';
   });
@@ -157,11 +186,60 @@ function tagPlayables() {
   });
 }
 
+// Selectors for elements that count as "engagements" (view counts, likes, etc.)
+const ENGAGEMENT_SELS = [
+  '#metadata-line',
+  'span.inline-metadata-item',
+  'ytd-video-view-count-renderer',
+  'yt-view-count-renderer',
+  'ytd-watch-info-text',
+  'segmented-like-dislike-button-view-model',
+  'ytd-segmented-like-dislike-button-renderer',
+  '#owner-sub-count',
+  '#subscriber-count',
+  'ytd-notification-topbar-button-renderer',
+  '#notification-button',
+  'ytd-feed-filter-chip-bar-renderer',
+];
+
+// Directly set inline styles on engagement elements. This works regardless of
+// YouTube's CSP (no <style> injection) and regardless of shadow DOM (we use
+// querySelectorAll which reaches Polymer light-DOM templates).
+let engagementsTimer = null;
+function applyEngagementsDom() {
+  const on = hideEngagements && enabled;
+  for (const sel of ENGAGEMENT_SELS) {
+    document.querySelectorAll(sel).forEach(el => {
+      if (on) el.style.setProperty('display', 'none', 'important');
+      else    el.style.removeProperty('display');
+    });
+  }
+  // Watch page: hide everything rendered after ytd-watch-metadata (comments etc.)
+  document.querySelectorAll('ytd-watch-metadata').forEach(meta => {
+    let sib = meta.nextElementSibling;
+    while (sib) {
+      if (on) sib.style.setProperty('display', 'none', 'important');
+      else    sib.style.removeProperty('display');
+      sib = sib.nextElementSibling;
+    }
+  });
+}
+
 function applyDisplayToggles() {
-  document.body?.classList.toggle('ytlf-hide-home',      hideHome);
-  document.body?.classList.toggle('ytlf-hide-sidebar',   hideSidebar);
-  document.body?.classList.toggle('ytlf-hide-shorts',    hideShorts);
-  document.body?.classList.toggle('ytlf-hide-playables', hidePlayables);
+  if (!enabled) {
+    document.body?.classList.remove(
+      'ytlf-hide-home', 'ytlf-hide-sidebar', 'ytlf-hide-shorts',
+      'ytlf-hide-playables', 'ytlf-hide-engagements'
+    );
+    applyEngagementsDom();
+    return;
+  }
+  document.body?.classList.toggle('ytlf-hide-home',        hideHome);
+  document.body?.classList.toggle('ytlf-hide-sidebar',     hideSidebar);
+  document.body?.classList.toggle('ytlf-hide-shorts',      hideShorts);
+  document.body?.classList.toggle('ytlf-hide-playables',   hidePlayables);
+  document.body?.classList.toggle('ytlf-hide-engagements', hideEngagements);
+  applyEngagementsDom();
   if (hideShorts)    tagShorts();
   if (hidePlayables) tagPlayables();
 }
@@ -219,9 +297,15 @@ function isContextValid() {
 }
 
 // Pages where we actively filter renderers.
+// Personal pages (/feed/you, /feed/history, /feed/library, etc.) are excluded —
+// filtering your own playlists and history by language makes no sense.
 function isFilteredPage() {
   const p = window.location.pathname;
-  return p === '/results' || p === '/watch' || p === '/' || p.startsWith('/feed/');
+  return p === '/results' ||
+         p === '/watch'   ||
+         p === '/'        ||
+         p === '/feed/subscriptions' ||
+         p === '/feed/trending';
 }
 
 // --- Badge language: read YouTube's own language indicator from the video card ---
@@ -378,7 +462,7 @@ async function flush() {
 
 function queueRenderer(renderer) {
   const lang = getLang();
-  if (!lang) { renderer.style.display = ''; return; }
+  if (!lang || !enabled) { renderer.style.display = ''; return; }
 
   // Hide immediately — prevents the "flash then disappear" blink.
   // flush() / filterByText() will reveal videos that match.
@@ -404,48 +488,108 @@ function filterAll() {
 function buildWidget() {
   const wrapper = document.createElement('div');
   wrapper.id = 'ytlf';
+  wrapper.dataset.enabled = enabled ? '1' : '0';
 
-  const select = document.createElement('select');
-  select.setAttribute('aria-label', 'Filter by language');
+  // ── Custom dropdown ──────────────────────────────────────
+  const dropdown = document.createElement('div');
+  dropdown.id = 'ytlf-dropdown';
+
+  const trigger = document.createElement('button');
+  trigger.id = 'ytlf-trigger';
+  trigger.setAttribute('aria-haspopup', 'listbox');
+  trigger.setAttribute('aria-expanded', 'false');
+
+  const triggerLabel = document.createElement('span');
+  triggerLabel.id = 'ytlf-trigger-label';
+
+  const triggerArrow = document.createElement('span');
+  triggerArrow.id = 'ytlf-trigger-arrow';
+  triggerArrow.innerHTML =
+    '<svg width="10" height="6" viewBox="0 0 10 6" fill="none">' +
+    '<path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5"' +
+    ' stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  trigger.appendChild(triggerLabel);
+  trigger.appendChild(triggerArrow);
+
+  const panel = document.createElement('div');
+  panel.id = 'ytlf-panel';
+  panel.setAttribute('role', 'listbox');
 
   for (const { code, label } of LANGUAGES) {
-    const opt = document.createElement('option');
-    opt.value = code;
+    const opt = document.createElement('div');
+    opt.className = 'ytlf-opt';
+    opt.setAttribute('role', 'option');
+    opt.dataset.value = code;
     opt.textContent = label;
-    select.appendChild(opt);
+    panel.appendChild(opt);
   }
 
-  select.value = getLang();
-  select.addEventListener('change', async () => {
-    const newLang = select.value;
-    setLang(newLang);
+  dropdown.appendChild(trigger);
+  dropdown.appendChild(panel);
 
-    // Translate the search query into the new language, then re-search
+  // Sync label + selected highlight to current getLang()
+  function syncSelected() {
+    const lang = getLang();
+    triggerLabel.textContent = LANGUAGES.find(l => l.code === lang)?.label ?? 'All Languages';
+    panel.querySelectorAll('.ytlf-opt').forEach(o =>
+      o.classList.toggle('selected', o.dataset.value === lang)
+    );
+  }
+
+  function openPanel() {
+    panel.classList.add('open');
+    trigger.setAttribute('aria-expanded', 'true');
+    panel.querySelector('.ytlf-opt.selected')?.scrollIntoView({ block: 'nearest' });
+  }
+  function closePanel() {
+    panel.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  let ddBusy = false; // prevent double-fire during translation
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (ddBusy) return;
+    panel.classList.contains('open') ? closePanel() : openPanel();
+  });
+
+  panel.addEventListener('click', async (e) => {
+    const opt = e.target.closest('.ytlf-opt');
+    if (!opt || ddBusy) return;
+    const newLang = opt.dataset.value;
+    setLang(newLang);
+    syncSelected();
+    closePanel();
+
     if (newLang && window.location.pathname === '/results') {
       const currentUrl = new URL(window.location.href);
       const query = currentUrl.searchParams.get('search_query') ?? '';
-
       if (query) {
-        select.disabled = true; // prevent double-fire while awaiting
+        ddBusy = true;
+        wrapper.style.opacity = '0.5';
         try {
           const translated = await translateQuery(query, newLang);
-          if (getLang() !== newLang) return; // language changed while translating
+          if (getLang() !== newLang) return;
           if (translated && translated !== query) {
             currentUrl.searchParams.set('search_query', translated);
             window.location.assign(currentUrl.toString());
-            return; // yt-navigate-finish will call filterAll() after navigation
+            return;
           }
-        } catch {
-          // translation failed — fall through to filterAll with original query
-        } finally {
-          select.disabled = false;
-        }
+        } catch { /* translation failed — fall through */ }
+        finally { ddBusy = false; wrapper.style.opacity = ''; }
       }
     }
-
     filterAll();
   });
 
+  // Close when clicking anywhere outside the dropdown
+  document.addEventListener('click', closePanel);
+
+  syncSelected();
+
+  // ── Light / dark toggle ──────────────────────────────────
   const toggle = document.createElement('button');
   toggle.id = 'ytlf-toggle';
   toggle.title = 'Toggle light / dark';
@@ -455,7 +599,7 @@ function buildWidget() {
     applyTheme(wrapper, next);
   });
 
-  wrapper.appendChild(select);
+  wrapper.appendChild(dropdown);
   wrapper.appendChild(toggle);
 
   applyTheme(wrapper, resolveTheme());
@@ -463,7 +607,11 @@ function buildWidget() {
 }
 
 function injectWidget() {
-  if (document.getElementById('ytlf')) return;
+  const existing = document.getElementById('ytlf');
+  if (existing) {
+    existing.dataset.enabled = enabled ? '1' : '0';
+    return;
+  }
   const center = document.querySelector('#center');
   if (!center) return;
   center.appendChild(buildWidget());
@@ -481,6 +629,12 @@ const observer = new MutationObserver((mutations) => {
       if (hideShorts)    tagShorts();
       if (hidePlayables) tagPlayables();
     }, 150);
+  }
+
+  // Re-apply engagement hiding to newly added elements (infinite scroll, SPA loads)
+  if (hideEngagements && enabled) {
+    clearTimeout(engagementsTimer);
+    engagementsTimer = setTimeout(applyEngagementsDom, 150);
   }
 
   if (!getLang() || !isFilteredPage()) return;
@@ -504,7 +658,7 @@ const observer = new MutationObserver((mutations) => {
 // that incorrectly matches auto-dubbed tracks like "English (US)" whose displayName
 // contains no "dubbed" text, causing the extension to actively select the wrong track.
 function switchToOriginalAudio() {
-  if (!isContextValid() || !getLang()) return 'stop';
+  if (!isContextValid()) return 'stop';
   if (window.location.pathname !== '/watch') return 'stop';
 
   const player = document.querySelector('#movie_player');
@@ -536,7 +690,7 @@ let audioTimer = null;
 const AUDIO_RETRY_MS = [100, 200, 300, 500, 1000, 1000, 1500, 2000, 2000, 2000];
 
 function scheduleAudioSwitch(attempt = 0) {
-  if (!isContextValid() || !getLang()) return;
+  if (!isContextValid()) return;
   if (window.location.pathname !== '/watch') return;
   if (attempt >= AUDIO_RETRY_MS.length) return;
 
@@ -546,8 +700,13 @@ function scheduleAudioSwitch(attempt = 0) {
   }
 }
 
-// Re-run on every YouTube data update (covers autoplay-next and mid-session track changes)
-document.addEventListener('yt-page-data-updated', () => scheduleAudioSwitch(0));
+// Re-run on every YouTube data update — audio switch + early Shorts/Playables tagging
+// (yt-page-data-updated fires before yt-navigate-finish, so tagging here reduces flash)
+document.addEventListener('yt-page-data-updated', () => {
+  scheduleAudioSwitch(0);
+  if (hideShorts)    tagShorts();
+  if (hidePlayables) tagPlayables();
+});
 
 // --- Search query language enforcement ---
 
@@ -556,20 +715,37 @@ document.addEventListener('yt-page-data-updated', () => scheduleAudioSwitch(0));
 // translates before filterAll() runs, so the results are in the selected language.
 // Returns true if navigation was triggered (caller must not call filterAll yet).
 
-// Stores the translated query we just navigated to so the next init() call can
-// recognise it and skip translation — preventing an infinite redirect loop.
+// Prevents concurrent calls racing each other into a double-navigate loop.
+let isTranslating = false;
+
+// Module variable: persists across SPA navigations within the same page session.
+// sessionStorage mirrors it so it also survives a hard reload.
+// The value is KEPT (not deleted) after first read so that repeated init() calls
+// on the same page all see it and skip re-translation.
+// Cleared only when the user types a genuinely new search query.
 let lastAutoTranslatedQuery = null;
+const LAST_TRANSLATED_KEY = 'ytlf_last_translated';
 
 async function ensureQueryInLang(lang) {
+  if (isTranslating) return true;
+
   const url   = new URL(window.location.href);
   const query = url.searchParams.get('search_query') ?? '';
   if (!query) return false;
 
-  // Break the loop: we just landed on the page we translated to — stop here.
-  if (query === lastAutoTranslatedQuery) {
-    lastAutoTranslatedQuery = null;
-    return false;
+  // Seed module variable from sessionStorage on hard reload (module var resets to null).
+  if (!lastAutoTranslatedQuery) {
+    lastAutoTranslatedQuery = sessionStorage.getItem(LAST_TRANSLATED_KEY);
   }
+
+  // User started a new search — clear our stored translation.
+  if (lastAutoTranslatedQuery && query !== lastAutoTranslatedQuery) {
+    lastAutoTranslatedQuery = null;
+    sessionStorage.removeItem(LAST_TRANSLATED_KEY);
+  }
+
+  // Already on the translated page — skip. Value is kept so repeat calls also skip.
+  if (lastAutoTranslatedQuery && query === lastAutoTranslatedQuery) return false;
 
   // If CLD is confident the query is already in the target language, skip translation.
   const alreadyInLang = await new Promise(resolve => {
@@ -584,14 +760,44 @@ async function ensureQueryInLang(lang) {
   // Query is not confidently in the target language — translate and re-navigate.
   try {
     const translated = await translateQuery(query, lang);
-    if (translated && translated !== query && getLang() === lang) {
-      lastAutoTranslatedQuery = translated; // remember where we're going
+    // Ignore trivial differences (e.g. capitalisation) to avoid spurious redirects.
+    const meaningful = translated &&
+      translated.trim().toLowerCase() !== query.trim().toLowerCase();
+    if (meaningful && getLang() === lang) {
+      if (isTranslating) return true; // another concurrent call won the race
+      isTranslating = true;
+      lastAutoTranslatedQuery = translated;
+      sessionStorage.setItem(LAST_TRANSLATED_KEY, translated);
       url.searchParams.set('search_query', translated);
+      // If hiding Shorts, include the Videos filter in the same navigation
+      // so we don't need a second redirect after translation.
+      if (hideShorts && enabled) url.searchParams.set('sp', 'EgIQAQ==');
       window.location.assign(url.toString());
-      return true; // navigation started; init() will run again after landing
+      return true;
     }
   } catch { /* translation failed — fall through to filterAll */ }
   return false;
+}
+
+// --- Search results: auto-apply YouTube's "Videos" filter when hiding Shorts ---
+// Navigate directly to the sp-filtered URL instead of trying to find and click
+// a chip — this works regardless of chip visibility, DOM timing, or whether
+// engagements hiding has hidden the chip bar.
+// sp=EgIQAQ== is YouTube's stable protobuf-encoded "Videos only" filter value,
+// unchanged since ~2018.
+
+let isVideoFiltering = false;
+
+function applyVideoFilter() {
+  if (isVideoFiltering) return;
+  if (window.location.pathname !== '/results') return;
+  if (!hideShorts || !enabled) return;
+  const url = new URL(window.location.href);
+  if (url.searchParams.get('sp')) return; // filter already active
+
+  isVideoFiltering = true;
+  url.searchParams.set('sp', 'EgIQAQ==');
+  window.location.assign(url.toString());
 }
 
 // --- init ---
@@ -600,16 +806,34 @@ async function init() {
   injectWidget();
   applyDisplayToggles();
 
+  if (!enabled) {
+    document.querySelectorAll(RENDERER_SEL).forEach(r => { r.style.display = ''; });
+    return;
+  }
+
   // On the results page, ensure the query matches the selected language before filtering.
   if (window.location.pathname === '/results') {
     const lang = getLang();
     if (lang && await ensureQueryInLang(lang)) return; // redirecting — don't filter yet
+    applyVideoFilter(); // click "Videos" chip if hideShorts is on
   }
 
   if (isFilteredPage()) filterAll();
   if (window.location.pathname === '/watch') scheduleAudioSwitch();
 }
 
-document.addEventListener('yt-navigate-finish', init);
+// Re-apply body classes the moment navigation starts so CSS takes effect before
+// the new page content is rendered (prevents Shorts flash-of-content).
+document.addEventListener('yt-navigate-start', applyDisplayToggles);
+
+// Debounce yt-navigate-finish: YouTube fires it multiple times per navigation.
+// Without debouncing, concurrent init() calls both run ensureQueryInLang,
+// both translate the query, and both call location.assign → infinite loop.
+let initTimer = null;
+document.addEventListener('yt-navigate-finish', () => {
+  isVideoFiltering = false; // navigation complete — allow applyVideoFilter again
+  clearTimeout(initTimer);
+  initTimer = setTimeout(init, 50);
+});
 observer.observe(document.body, { childList: true, subtree: true });
 init();

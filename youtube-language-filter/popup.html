@@ -6,18 +6,30 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <h1>YouTube Language Filter</h1>
+
+  <div class="popup-header">
+    <h1><span class="yt-red">YT</span> Language Filter</h1>
+    <button id="theme-btn" title="Toggle light / dark"></button>
+  </div>
+
+  <label class="power-row">
+    <span>Extension Enabled</span>
+    <span class="switch">
+      <input type="checkbox" id="ext-enabled" checked>
+      <span class="slider"></span>
+    </span>
+  </label>
 
   <div class="toggles">
     <label class="toggle-row">
-      <span>Hide homepage feed</span>
+      <span>Hide Homepage Feed</span>
       <span class="switch">
         <input type="checkbox" id="hide-home">
         <span class="slider"></span>
       </span>
     </label>
     <label class="toggle-row">
-      <span>Hide watch page sidebar</span>
+      <span>Hide Watch Page Sidebar</span>
       <span class="switch">
         <input type="checkbox" id="hide-sidebar">
         <span class="slider"></span>
@@ -37,21 +49,29 @@
         <span class="slider"></span>
       </span>
     </label>
+    <label class="toggle-row">
+      <span>Hide Engagements</span>
+      <span class="switch">
+        <input type="checkbox" id="hide-engagements">
+        <span class="slider"></span>
+      </span>
+    </label>
   </div>
 
-  <button id="toggle-btn">Insert / Show YouTube Data API v3 Key</button>
-  <p id="key-status"></p>
-
-  <div id="key-section" hidden>
-    <input id="key" type="text" placeholder="AIzaSy…" autocomplete="off" spellcheck="false">
-    <div id="actions">
-      <button id="save">Save</button>
-      <button id="clear">Clear</button>
+  <div class="api-section">
+    <button id="toggle-btn">YouTube Data API v3 Key</button>
+    <p id="key-status"></p>
+    <div id="key-section" hidden>
+      <input id="key" type="text" placeholder="AIzaSy…" autocomplete="off" spellcheck="false">
+      <div id="actions">
+        <button id="save">Save</button>
+        <button id="clear">Clear</button>
+      </div>
+      <p class="hint">
+        Get a free key: <b>console.cloud.google.com</b><br>
+        → Enable <b>YouTube Data API v3</b> → Credentials
+      </p>
     </div>
-    <p class="hint">
-      Get a free key: <b>console.cloud.google.com</b><br>
-      → Enable <b>YouTube Data API v3</b> → Credentials
-    </p>
   </div>
 
   <p id="status"></p>

@@ -23,7 +23,8 @@ body.ytlf-hide-shorts ytd-rich-item-renderer:has(a[href^="/shorts/"]),
 /* Search-results section wrappers — Shorts shelf lives inside ytd-item-section-renderer */
 body.ytlf-hide-shorts ytd-item-section-renderer:has(ytd-reel-shelf-renderer),
 body.ytlf-hide-shorts ytd-item-section-renderer:has(ytd-reel-item-renderer),
-body.ytlf-hide-shorts ytd-compact-video-renderer:has(a[href^="/shorts/"]) { display: none !important; }
+body.ytlf-hide-shorts ytd-compact-video-renderer:has(a[href^="/shorts/"]),
+body.ytlf-hide-shorts ytd-video-renderer:has(a[href^="/shorts/"]) { display: none !important; }
 /* JS scanner tags elements CSS might miss (unknown future element names, title-text matches) */
 body.ytlf-hide-shorts [data-ytlf-shorts] { display: none !important; }
 /* Left nav Shorts link */
@@ -38,13 +39,30 @@ body.ytlf-hide-playables [data-ytlf-playables] { display: none !important; }
 body.ytlf-hide-playables ytd-guide-entry-renderer:has(a[title="Playables"]),
 body.ytlf-hide-playables ytd-guide-entry-renderer:has(a[aria-label="Playables"]) { display: none !important; }
 
-/* ── Hide watch page sidebar + expand video ──────────────────────── */
+/* ── Hide watch page sidebar + center primary column ────────────── */
 body.ytlf-hide-sidebar #secondary { display: none !important; }
-body.ytlf-hide-sidebar ytd-watch-flexy #columns { max-width: none !important; }
-body.ytlf-hide-sidebar ytd-watch-flexy #primary { max-width: none !important; }
-body.ytlf-hide-sidebar ytd-watch-flexy #primary-inner { max-width: none !important; }
-body.ytlf-hide-sidebar ytd-watch-flexy #above-the-fold { max-width: none !important; }
-body.ytlf-hide-sidebar ytd-watch-flexy #below { max-width: none !important; }
+body.ytlf-hide-sidebar ytd-watch-flexy #columns { justify-content: center !important; }
+
+/* ── Hide engagements ────────────────────────────────────────────── */
+/* View counts on video cards (homepage, search, sidebar) */
+body.ytlf-hide-engagements #metadata-line,
+body.ytlf-hide-engagements span.inline-metadata-item { display: none !important; }
+/* View count + info on watch page */
+body.ytlf-hide-engagements ytd-video-view-count-renderer,
+body.ytlf-hide-engagements ytd-watch-info-text { display: none !important; }
+/* Like / dislike buttons */
+body.ytlf-hide-engagements segmented-like-dislike-button-view-model,
+body.ytlf-hide-engagements ytd-segmented-like-dislike-button-renderer { display: none !important; }
+/* Subscriber count */
+body.ytlf-hide-engagements #owner-sub-count,
+body.ytlf-hide-engagements #subscriber-count { display: none !important; }
+/* Notification bell */
+body.ytlf-hide-engagements ytd-notification-topbar-button-renderer,
+body.ytlf-hide-engagements #notification-button { display: none !important; }
+/* Top filter chip bar (homepage category pills) — hidden via JS in applyEngagementsDom()
+   only on non-search pages so applyVideoFilter() can still click the Videos chip. */
+/* Everything below the description on the watch page */
+body.ytlf-hide-engagements ytd-watch-metadata ~ * { display: none !important; }
 
 #ytlf {
   display: flex;
@@ -54,40 +72,112 @@ body.ytlf-hide-sidebar ytd-watch-flexy #below { max-width: none !important; }
   flex-shrink: 0;
 }
 
-/* ── Shared select layout ──────────────────────────────── */
-#ytlf select {
-  border: 1px solid;
-  border-radius: 18px;
-  padding: 0 14px;
+/* ── Custom dropdown ───────────────────────────────────── */
+#ytlf-dropdown { position: relative; flex-shrink: 0; }
+
+#ytlf-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   height: 36px;
+  padding: 0 14px;
+  border-radius: 20px;
+  border: 1px solid;
+  cursor: pointer;
   font-size: 14px;
   font-family: Roboto, Arial, sans-serif;
-  cursor: pointer;
+  white-space: nowrap;
   outline: none;
-  transition: background 0.15s;
+  min-width: 136px;
+  transition: background 0.15s, border-color 0.15s;
 }
+#ytlf-trigger-label { flex: 1; text-align: left; }
+#ytlf-trigger-arrow {
+  display: flex;
+  align-items: center;
+  opacity: 0.65;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+#ytlf-trigger[aria-expanded="true"] #ytlf-trigger-arrow { transform: rotate(180deg); }
 
-/* ── Light theme ───────────────────────────────────────── */
-#ytlf[data-theme="light"] select {
-  background: #f2f2f2;
-  color: #0f0f0f;
-  border-color: #cccccc;
+#ytlf-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 210px;
+  max-height: 320px;
+  overflow-y: auto;
+  border-radius: 14px;
+  border: 1px solid;
+  z-index: 999999;
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
+  pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s;
+  scrollbar-width: thin;
 }
-#ytlf[data-theme="light"] select:hover {
-  background: #e5e5e5;
-  border-color: #909090;
+#ytlf-panel.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: all;
+}
+.ytlf-opt {
+  padding: 9px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: Roboto, Arial, sans-serif;
+  transition: background 0.1s;
 }
 
 /* ── Dark theme ────────────────────────────────────────── */
-#ytlf[data-theme="dark"] select {
-  background: #272727;
-  color: #f1f1f1;
-  border-color: #3f3f3f;
+#ytlf[data-theme="dark"] #ytlf-trigger {
+  background: #272727; color: #f1f1f1; border-color: #3f3f3f;
 }
-#ytlf[data-theme="dark"] select:hover {
-  background: #3f3f3f;
-  border-color: #717171;
+#ytlf[data-theme="dark"] #ytlf-trigger:hover,
+#ytlf[data-theme="dark"] #ytlf-trigger[aria-expanded="true"] {
+  background: #383838; border-color: #606060;
 }
+#ytlf[data-theme="dark"] #ytlf-panel {
+  background: #1e1e1e;
+  border-color: rgba(255,255,255,0.1);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.65);
+}
+#ytlf[data-theme="dark"] #ytlf-panel::-webkit-scrollbar { width: 4px; }
+#ytlf[data-theme="dark"] #ytlf-panel::-webkit-scrollbar-thumb {
+  background: #444; border-radius: 4px;
+}
+#ytlf[data-theme="dark"] .ytlf-opt { color: #f1f1f1; }
+#ytlf[data-theme="dark"] .ytlf-opt:hover { background: rgba(255,255,255,0.07); }
+#ytlf[data-theme="dark"] .ytlf-opt.selected {
+  background: rgba(62,166,255,0.18); color: #3ea6ff; font-weight: 500;
+}
+
+/* ── Light theme ───────────────────────────────────────── */
+#ytlf[data-theme="light"] #ytlf-trigger {
+  background: #f2f2f2; color: #0f0f0f; border-color: #cccccc;
+}
+#ytlf[data-theme="light"] #ytlf-trigger:hover,
+#ytlf[data-theme="light"] #ytlf-trigger[aria-expanded="true"] {
+  background: #e5e5e5; border-color: #909090;
+}
+#ytlf[data-theme="light"] #ytlf-panel {
+  background: #ffffff;
+  border-color: rgba(0,0,0,0.1);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.13);
+}
+#ytlf[data-theme="light"] #ytlf-panel::-webkit-scrollbar { width: 4px; }
+#ytlf[data-theme="light"] #ytlf-panel::-webkit-scrollbar-thumb {
+  background: #ccc; border-radius: 4px;
+}
+#ytlf[data-theme="light"] .ytlf-opt { color: #0f0f0f; }
+#ytlf[data-theme="light"] .ytlf-opt:hover { background: rgba(0,0,0,0.05); }
+#ytlf[data-theme="light"] .ytlf-opt.selected {
+  background: rgba(0,96,204,0.1); color: #0060cc; font-weight: 500;
+}
+
+/* ── Disabled state (extension turned off) ─────────────── */
+#ytlf[data-enabled="0"] { opacity: 0.4; pointer-events: none; }
 
 /* ── Toggle button ─────────────────────────────────────── */
 #ytlf-toggle {
